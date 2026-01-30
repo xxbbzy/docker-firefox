@@ -5,6 +5,12 @@ set -u # Treat unset variables as an error.
 
 export HOME=/config
 
+# Set input method environment variables for fcitx5.
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export INPUT_METHOD=fcitx
+
 PIDS=
 
 notify() {

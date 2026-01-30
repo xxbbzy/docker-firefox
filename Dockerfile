@@ -56,9 +56,20 @@ RUN \
         xdotool \
         # A font is needed.
         font-dejavu \
+        # Chinese fonts.
+        font-noto-cjk \
         && \
     # Remove unneeded icons.
     find /usr/share/icons/Adwaita -type d -mindepth 1 -maxdepth 1 -not -name 16x16 -not -name scalable -exec rm -rf {} ';' && \
+    true
+
+# Install fcitx5 Chinese input method.
+RUN \
+    add-pkg \
+        fcitx5 \
+        fcitx5-gtk3 \
+        fcitx5-chinese-addons \
+        && \
     true
 
 # Install profile-cleaner.
