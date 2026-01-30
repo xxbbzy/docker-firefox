@@ -65,10 +65,15 @@ RUN \
 
 # Install fcitx5 Chinese input method.
 RUN \
+    ARCH="$(apk --print-arch)" && \
+    # fcitx5-chinese-addons is not available on all architectures (e.g., x86/386)
+    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "aarch64" ]; then \
+        fcitx5_chinese_addons="fcitx5-chinese-addons"; \
+    fi && \
     add-pkg \
         fcitx5 \
         fcitx5-gtk3 \
-        fcitx5-chinese-addons \
+        $fcitx5_chinese_addons \
         && \
     true
 
