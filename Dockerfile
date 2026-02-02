@@ -104,6 +104,10 @@ RUN \
 COPY rootfs/ /
 COPY --from=membarrier /tmp/membarrier_check /usr/bin/
 
+# Ensure fcitx5 scripts are executable.
+RUN chmod +x /etc/cont-init.d/57-fcitx5.sh && \
+    chmod +x /etc/services.d/fcitx5/run
+
 # Set internal environment variables.
 RUN \
     set-cont-env APP_NAME "Firefox" && \
