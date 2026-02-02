@@ -105,8 +105,16 @@ COPY rootfs/ /
 COPY --from=membarrier /tmp/membarrier_check /usr/bin/
 
 # Ensure fcitx5 scripts are executable.
-RUN chmod +x /etc/cont-init.d/57-fcitx5.sh && \
+RUN chmod +x /etc/cont-init.d/50-ime-button.sh && \
+    chmod +x /etc/cont-init.d/57-fcitx5.sh && \
     chmod +x /etc/services.d/fcitx5/run
+
+# Configure fcitx5 service dependencies:
+# - fcitx5 depends on gui (X server) to be ready
+# - Add fcitx5 to default service group so it gets loaded
+RUN mkdir -p /etc/services.d/default && \
+    touch /etc/services.d/fcitx5/gui.dep && \
+    touch /etc/services.d/default/fcitx5.dep
 
 # Set internal environment variables.
 RUN \
