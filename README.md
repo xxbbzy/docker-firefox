@@ -13,7 +13,8 @@ modern web browser, requiring no installation or configuration on the client
 side, or via any VNC client.
 
 > [!NOTE]
-> This Docker container is entirely unofficial and not made by the creators of Firefox.
+> This Docker container is entirely unofficial and not made by the creators of
+> Firefox.
 
 ---
 
@@ -54,6 +55,7 @@ Foundation and its subsidiary, Mozilla Corporation.
    * [Web Audio](#web-audio)
    * [Web File Manager](#web-file-manager)
    * [Web Notifications](#web-notifications)
+      * [Web Terminal](#web-terminal)
    * [GPU Acceleration Support](#gpu-acceleration-support)
    * [Shell Access](#shell-access)
    * [Allowing the membarrier System Call](#allowing-the-membarrier-system-call)
@@ -116,7 +118,7 @@ the `-e` parameter in the format `<VARIABLE_NAME>=<VALUE>`.
 |`LANG`| Sets the [locale](https://en.wikipedia.org/wiki/Locale_(computer_software)), defining the application's language, if supported. Format is `language[_territory][.codeset]`, where language is an [ISO 639 language code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes), territory is an [ISO 3166 country code](https://en.wikipedia.org/wiki/ISO_3166-1#Current_codes), and codeset is a character set, like `UTF-8`. For example, Australian English using UTF-8 is `en_AU.UTF-8`. | `en_US.UTF-8` |
 |`TZ`| [TimeZone](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones) used by the container. The timezone can also be set by mapping `/etc/localtime` between the host and the container. | `Etc/UTC` |
 |`KEEP_APP_RUNNING`| When set to `1`, the application is automatically restarted if it crashes or terminates. | `0` |
-|`APP_NICENESS`| Priority at which the application runs. A niceness value of -20 is the highest, 19 is the lowest and 0 the default. **NOTE**: A negative niceness (priority increase) requires additional permissions. The container must be run with the Docker option `--cap-add=SYS_NICE`. | `0` |
+|`APP_NICENESS`| Priority at which the application runs. A niceness value of `-20` is the highest, `19` is the lowest and `0` the default. **NOTE**: A negative niceness (priority increase) requires additional permissions. The container must be run with the Docker option `--cap-add=SYS_NICE`. | `0` |
 |`INSTALL_PACKAGES`| Space-separated list of packages to install during container startup. List of available packages can be found at https://pkgs.alpinelinux.org. | (no value) |
 |`PACKAGES_MIRROR`| Mirror of the repository to use when installing packages. List of mirrors is available at https://mirrors.alpinelinux.org. | (no value) |
 |`CONTAINER_DEBUG`| When set to `1`, enables debug logging. | `0` |
@@ -128,6 +130,7 @@ the `-e` parameter in the format `<VARIABLE_NAME>=<VALUE>`.
 |`WEB_FILE_MANAGER_ALLOWED_PATHS`| Comma-separated list of paths within the container that the file manager can access. By default, the container's entire filesystem is not accessible, and this variable specifies allowed paths. If set to `AUTO`, commonly used folders and those mapped to the container are automatically allowed. The value `ALL` allows access to all paths (no restrictions). See [Web File Manager](#web-file-manager) for details. | `AUTO` |
 |`WEB_FILE_MANAGER_DENIED_PATHS`| Comma-separated list of paths within the container that the file manager cannot access. A denied path takes precedence over an allowed path. See [Web File Manager](#web-file-manager) for details. | (no value) |
 |`WEB_NOTIFICATION`| When set to `1`, enables the web notification service, allowing the browser to display desktop notifications from the application. Requires the container to be configured with secure web access (HTTPS). See [Web Notifications](#web-notifications) for details. | `0` |
+|`WEB_TERMINAL`| When set to `1`, enables access to a terminal from the web interface. It is strongly recommended to configure the container with secure web access (HTTPS). See [Web Terminal](#web-terminal) for details. | `0` |
 |`WEB_AUTHENTICATION`| When set to `1`, protects the application's GUI with a login page when accessed via a web browser. Access is granted only with valid credentials. Requires the container to be configured with secure web access (HTTPS). See [Web Authentication](#web-authentication) for details. | `0` |
 |`WEB_AUTHENTICATION_TOKEN_VALIDITY_TIME`| Lifetime of a token, in hours. A token is assigned to the user after successful login. As long as the token is valid, the user can access the application's GUI without logging in again. Once the token expires, the login page is displayed again. | `24` |
 |`WEB_AUTHENTICATION_USERNAME`| Optional username for web authentication. Provides a quick and easy way to configure credentials for a single user. For more secure configuration or multiple users, see the [Web Authentication](#web-authentication) section. | (no value) |
@@ -142,7 +145,7 @@ the `-e` parameter in the format `<VARIABLE_NAME>=<VALUE>`.
 |`VNC_PASSWORD`| Password required to connect to the application's GUI. See the [VNC Password](#vnc-password) section for details. | (no value) |
 |`ENABLE_CJK_FONT`| When set to `1`, installs the open-source font `WenQuanYi Zen Hei`, supporting a wide range of Chinese/Japanese/Korean characters. | `0` |
 |`FF_OPEN_URL`| The URL to open when Firefox starts. Multiple URLs can be opened by separating them with the pipe character (`|`). | (no value) |
-|`FF_KIOSK`| Set to `1` to enable kiosk mode.  This mode launches Firefox in a very restricted and limited mode best suitable for public areas or customer-facing displays. | `0` |
+|`FF_KIOSK`| Set to `1` to enable kiosk mode. This mode launches Firefox in a very restricted and limited mode best suitable for public areas or customer-facing displays. | `0` |
 |`FF_CUSTOM_ARGS`| Custom argument(s) to pass when launching Firefox. | (no value) |
 
 #### Deployment Considerations
@@ -482,6 +485,9 @@ for details on configuring environment variables.
 > Web authentication requires the container to be configured with secure web
 > access (HTTPS). See [Security](#security) for details.
 
+> [!NOTE]
+> This feature is not available to VNC clients.
+
 #### Configuring Users Credentials
 
 User credentials can be configured in two ways:
@@ -547,17 +553,14 @@ server {
 
 	location / {
 		proxy_pass http://docker-firefox;
-	}
-
-	location /websockify {
-		proxy_pass http://docker-firefox;
 		proxy_http_version 1.1;
 		proxy_set_header Upgrade $http_upgrade;
 		proxy_set_header Connection $connection_upgrade;
-		proxy_read_timeout 86400;
+		proxy_buffering off;
+		proxy_read_timeout 86400s;
+		proxy_send_timeout 86400s;
 	}
 }
-
 ```
 
 ### Routing Based on URL Path
@@ -589,19 +592,17 @@ server {
 	location = /firefox {return 301 $scheme://$http_host/firefox/;}
 	location /firefox/ {
 		proxy_pass http://docker-firefox/;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection $connection_upgrade;
+		proxy_buffering off;
+		proxy_read_timeout 86400s;
+		proxy_send_timeout 86400s;
 		# Uncomment the following line if your Nginx server runs on a port that
 		# differs from the one seen by external clients.
 		#port_in_redirect off;
-		location ~ ^/firefox/(websockify(-.*)?) {
-                        proxy_pass http://docker-firefox/$1;
-			proxy_http_version 1.1;
-			proxy_set_header Upgrade $http_upgrade;
-			proxy_set_header Connection $connection_upgrade;
-			proxy_read_timeout 86400;
-		}
 	}
 }
-
 ```
 
 ## Web Control Panel
@@ -620,6 +621,7 @@ window to open it.
 | **Fullscreen** icon | Toggle fullscreen mode for the browser window. |
 | **Hand** icon| Allows dragging/moving the application window. Visible only when **Scaling Mode** is *None* and **Clip to Window** is enabled.
 | **Folder** icon | Opens the intgegrated file browser. Visible only when the [file manager](#web-file-manager) is enabled. |
+| **Terminal** icon | Opens the integrated terminal. Visibile only when the [terminal](#web-terminal) is enabled. |
 | **Clipboard** text box| Mirrors the application’s clipboard. Any text typed or pasted here is sent to the application, and text copied inside the application automatically appears here. Hidden when [automatic clipboard synchronization](#automatic-clipboard-sync) is active. |
 | **Clear** button | Clears the clipboard. Hidden when [automatic clipboard synchronization](#automatic-clipboard-sync) is active. |
 | **Audio** icon | Mutes or unmutes audio streaming from the container. Visible only when [audio support](#web-audio) is enabled. |
@@ -659,6 +661,9 @@ the first time clipboard access is requested.
 > [control panel](#web-control-panel), which provides manual clipboard access
 > between the host and the container.
 
+> [!NOTE]
+> This feature is not available to VNC clients.
+
 ## Web Audio
 
 The container supports streaming audio from the application, played through the
@@ -677,6 +682,9 @@ configuring environment variables.
 
 Control of the audio stream (mute, unmute and volume) is done via the
 [control panel](#web-control-panel).
+
+> [!NOTE]
+> This feature is not available to VNC clients.
 
 ## Web File Manager
 
@@ -701,6 +709,9 @@ The `WEB_FILE_MANAGER_DENIED_PATHS` environment variable defines which paths are
 explicitly denied access by the file manager. A denied path takes precedence
 over an allowed one.
 
+> [!NOTE]
+> This feature is not available to VNC clients.
+
 ## Web Notifications
 
 The container includes support for notifications sent through the web browser.
@@ -715,6 +726,30 @@ configuring environment variables.
 > Web browsers only allow notifications in secure contexts (HTTPS). This means
 > the container must be configured with secure web access. See
 > [Security](#security) for details.
+
+> [!NOTE]
+> This feature is not available to VNC clients.
+
+### Web Terminal
+
+The container includes a web-based terminal, allowing users to easily obtain
+shell access to the running container through a web browser.
+
+Enable the web terminal by setting `WEB_TERMINAL` to `1`. See the
+[Environment Variables](#environment-variables) section for details on
+configuring environment variables.
+
+> [!IMPORTANT]
+> For security reasons, the shell runs as a non-privileged user. As a result,
+> commands that require root privileges cannot be executed.
+
+> [!IMPORTANT]
+> To prevent sensible information from leaking over the network, it is strongly
+> recommended to configure the container with secure web access. See
+> [Security](#security) for details.
+
+> [!NOTE]
+> This feature is not available to VNC clients.
 
 ## GPU Acceleration Support
 
@@ -732,6 +767,7 @@ To enable GPU acceleration, the host must have compatible open-source kernel
 drivers installed, and the GPU device `/dev/dri` must be exposed to the
 container. For example, this is done by adding the `--device /dev/dri`
 argument to the `docker run` command.
+
 ## Shell Access
 
 To access the shell of a running container, execute the following command:
@@ -746,23 +782,23 @@ creation.
 ## Allowing the membarrier System Call
 
 To properly work, recent versions of Firefox need the
-`membarrier` system call.  Without it, tabs would frequently crash.
+`membarrier` system call. Without it, tabs would frequently crash.
 
 Docker uses [seccomp profile] to restrict system calls available to the
-container.  Before Docker version `20.10.0`, the `membarrier` system call was
-not allowed in the default profile.  If you run a such version, you can use one
+container. Before Docker version `20.10.0`, the `membarrier` system call was
+not allowed in the default profile. If you run a such version, you can use one
 of the following solutions, from the most to the least secure, to provide the
 container permission to use this sytem call:
 
   1. Run the container with a custom seccomp profile allowing the `membarrier`
-     system call.  The [latest official seccomp profile] can be used.  Download
+     system call. The [latest official seccomp profile] can be used. Download
      the file and then add the following parameter when creating the container:
      `--security-opt seccomp=/path/to/seccomp_profile.json`.
   2. Run the container without the default seccomp profile (thus allowing all
      system calls). Use the following parameter when creating the container:
      `--security-opt seccomp=unconfined`.
-  3. Run the container in privileged mode.  This effectively disables usage of
-     seccomp.  Add the `--privileged` parameter when creating the container.
+  3. Run the container in privileged mode. This effectively disables usage of
+     seccomp. Add the `--privileged` parameter when creating the container.
 
   [here]: https://bugzilla.mozilla.org/show_bug.cgi?id=1338771#c10
   [latest official seccomp profile]: https://github.com/moby/moby/blob/master/vendor/github.com/moby/profiles/seccomp/default.json
@@ -771,21 +807,21 @@ container permission to use this sytem call:
 ## Setting Firefox Preferences Via Environment Variables
 
 Firefox preferences can be set via environment variables
-passed to the container.  During the startup, a script process all these
+passed to the container. During the startup, a script process all these
 variables and modify the preference file accordingly.
 
 The name of the environment variable must start with `FF_PREF_`, followed by a
-string of your choice.  For example, `FF_PREF_MY_PREF` is a valid name.
+string of your choice. For example, `FF_PREF_MY_PREF` is a valid name.
 
 The content of the variable should be in the format `NAME=VAL`, where `NAME` is
 the name of the preference (as found in the `about:config` page) and `VAL` is
-its value.  A value can be one of the following types:
+its value. A value can be one of the following types:
   - string
   - integer
   - boolean
 
 It is important to note that a value of type `string` should be surrounded by
-double quotes.  Other types don't need them.
+double quotes. Other types don't need them.
 
 For example, to set the `network.proxy.http` preference, one would pass the
 environment variable to the container by adding the following argument to the
@@ -795,7 +831,7 @@ environment variable to the container by adding the following argument to the
 -e "FF_PREF_HTTP_PROXY=network.proxy.http=\"proxy.example.com\""
 ```
 
-If a preference needs to be *removed*, its value should be set to `UNSET`.  For
+If a preference needs to be *removed*, its value should be set to `UNSET`. For
 example:
 
 ```
@@ -810,7 +846,7 @@ via Firefox directly.
 ### Crashes
 
 If Firefox is crashing frequently, make sure that:
-  - The `membarrier` system call is not blocked by Docker.  See the
+  - The `membarrier` system call is not blocked by Docker. See the
     [Allowing the membarrier System Call](#allowing-the-membarrier-system-call)
     for more details.
   - Make sure the kernel of your Linux distribution is up-to-date.
